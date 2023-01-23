@@ -4,7 +4,6 @@
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
 ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", [0, 1, 0]);
-const CurrentTPS = ll.import("QueryTPS", "GetCurrentTPS");//写infomotd那种的类
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
 let i=0,j=0,k=0;
@@ -74,7 +73,7 @@ conf.init("templates",[
 			contents:[
 				{
 					time:2,
-					contents:"tps:$tps",
+					contents:"tps:$currenttps",
 					color:"f"
 				}
 			]
@@ -146,6 +145,53 @@ conf.init("templates",[
 	}
 
 ])
+class tps{
+	constructor(){
+		const availabletpsplugins=["QueryTPS","BEPlaceholderAPI"];
+		let i;
+		for(i=0;i<availabletpsplugins.length;i++){
+			if(ll.listPlugins().includes(availabletpsplugins[i])){
+				this.type=availabletpsplugins[i];
+				break;
+			}
+		}
+	}
+	currentTps(){
+		let tpsfunc;
+		switch(this.type){
+			case "QueryTPS": {
+				tpsfunc=ll.import("QueryTPS", "GetCurrentTPS");
+				return tpsfunc();
+			}
+			case "BEPlaceholderAPI": {
+				tpsfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return tpsfunc.getValue("server_tps");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	averageTps(){
+		let tpsfunc;
+		switch(this.type){
+			case "QueryTPS": {
+				tpsfunc=ll.import("QueryTPS", "GetAverageTPS");
+				return tpsfunc();
+			}
+			case "BEPlaceholderAPI": {
+				tpsfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return tpsfunc.getValue("server_tps");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
 let maincmd = mc.newCommand("sidebar","自定义您的侧边栏",PermType.Any);
 maincmd.overload();
 maincmd.setCallback(function(cmd,origin,output,results){
@@ -439,11 +485,22 @@ function replace(str,player){
 	let replaced="";
 	replaced=str.replace(/\$time/,`${(system.getTimeObj().h-system.getTimeObj().h%10)/10}${system.getTimeObj().h%10}:${(system.getTimeObj().m-system.getTimeObj().m%10)/10}${system.getTimeObj().m%10}`)
 	.replace(/\$ping/,`${player.getDevice().lastPing}`)
-	.replace(/\$tps/g,`${CurrentTPS()}`)
 	.replace(/\$name/g,player.name)
 	.replace(/\$facing/g,directionstr(player)+"§r")
 	.replace(/\$gametime/g,gametimestr()+"§r")
 	.replace(/\$weather/g,weatherstr()+"§r");
+	if(new tps().type!=null){//类迁移过来的时候，记得把i声明成局部变量
+		replaced=replaced.replace(/\$currenttps/g,new tps().currentTps());
+	}
+	else{
+		replaced=replaced.replace(/\$currenttps/g,"");
+	}
+	if(new tps().type!=null){
+		replaced=replaced.replace(/\$averagetps/g,new tps().averageTps());
+	}
+	else{
+		replaced=replaced.replace(/\$averagetps/g,"");
+	}
 	return replaced;
 }
 function animate(){
@@ -552,9 +609,6 @@ function gametime(){
 	timenum=0;
 	time = mc.runcmdEx("time query daytime");
 	timestr = time.output.match(/\d/g);
-	/*for(i=0;i<timestr.length;i++){
-
-	}*/
 	timestr.forEach((currentValue)=>{
 		timenum = timenum*10;
 		timenum = timenum + Number(currentValue);		
