@@ -3,7 +3,7 @@
 //然后加入玩家自行编写侧边栏，ui设计颜色的部分只在这个功能禁用的时候启用
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
-const llversion = ll.requireVersion(2,9,2)?[0,3,1,Version.Dev]:[0,3,1]
+const llversion = ll.requireVersion(2,9,2)?[0,3,2,Version.Dev]:[0,3,2]
 ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", llversion,{Author:"小鼠同学"});
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
@@ -150,6 +150,40 @@ conf.init("templates",[
 	}
 
 ])
+class gmoney {
+	constructor(type, object) {
+		this.type = type;
+		this.object = object;
+	}
+	set(player, value) {
+		if (this.type == "llmoney") {
+			money.set(player.xuid, value);
+		} else if (this.type == "scoreboard") {
+			let scoreboard = mc.getScoreObjective(this.object);
+			scoreboard.setScore(player, value)
+		}
+	}
+	reduce(player, value) {
+		if (this.type == "llmoney") {
+			money.reduce(player.xuid, value);
+		} else if (this.type == "scoreboard") {
+			let scoreboard = mc.getScoreObjective(this.object);
+			scoreboard.reduceScore(player, value)
+		}
+	}
+	get(player) {
+		switch (this.type) {
+			case "scoreboard": {
+				return player.getScore(this.object);
+				break;
+			}
+			case "llmoney": {
+				return money.get(player.xuid);
+				break;
+			}
+		}
+	}
+}
 class tps{
 	constructor(){
 		let i = 0;
@@ -205,6 +239,32 @@ class tps{
 		return this.type;
 	}
 }
+class mspt{
+	constructor(){
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let msptfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				msptfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return msptfunc.getValue("server_mspt");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
 let maincmd = mc.newCommand("sidebar","自定义您的侧边栏",PermType.Any);
 maincmd.overload();
 maincmd.setCallback(function(cmd,origin,output,results){
@@ -245,6 +305,7 @@ mc.listen("onPreJoin",function(player){
 				
 			})
 			individualcontents.set("data",write);
+			individualcontents.delete(player.uuid);	
 		}
 		else{
 			let write = individualcontents.get("data");
@@ -267,7 +328,7 @@ function sendsidebar(){
 	let displaycontents = [];
 	let frameorder=0;
 	setInterval(()=>{
-		let i;
+		let i,j;
 		frameorder++;
 		mc.getOnlinePlayers().forEach((player)=>{
 			displaycontents = [];
@@ -276,10 +337,29 @@ function sendsidebar(){
 					if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].display){
 						switch(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.type){
 							case "alt":{
-								let altcurrent=individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents[frameorder%individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents.length];
+								let totalframes=0;
+								let forlength=0;
+								let altcurrent;
+								let currentFrame=0;
+								individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents.forEach((currentValue)=>{
+									totalframes+=currentValue.time;
+								})
+								for(j=0;j<individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents.length;j++){
+									//log("1");
+									forlength+=individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents[j].time;
+									//log("forlength:",forlength);
+									//log("totalframes:",totalframes);
+									if(forlength>frameorder%totalframes){
+										currentFrame=j;
+										//log("break");
+										break;
+										
+									}
+								}
+								//log(currentFrame);
+								altcurrent=individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents[currentFrame];
+								//altcurrent=individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents[frameorder%individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents.length];
 								altcurrent.contents=replace(altcurrent.contents,player);
-								//log(altcurrent.contents);
-								//log(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i]);
 								displaycontents.push("§"+altcurrent.color+altcurrent.contents);	
 								break;
 							}
@@ -1159,9 +1239,11 @@ function replace(str,player){
 	.replace(/\$name/g,player.name)
 	.replace(/\$facing/g,directionstr(player))
 	.replace(/\$gametime/g,gametimestr())
-	.replace(/\$weather/g,weatherstr());
+	.replace(/\$weather/g,weatherstr())
+	.replace(/\$money/g,new gmoney("llmoney","").get(player));
+
 	if(new tps().type!=null){//类迁移过来的时候，记得把i声明成局部变量
-		replaced=replaced.replace(/\$currenttps/g,new tps().currentTps());
+		replaced=replaced.replace(/\$currenttps/g,new tps().currentTps()).replace(/\$tps/g,new tps().currentTps());
 	}
 	else{
 		replaced=replaced.replace(/\$currenttps/g,"");
