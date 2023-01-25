@@ -3,7 +3,7 @@
 //然后加入玩家自行编写侧边栏，ui设计颜色的部分只在这个功能禁用的时候启用
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
-const llversion = ll.requireVersion(2,9,2)?[0,3,0,Version.Dev]:[0,3,0]
+const llversion = ll.requireVersion(2,9,2)?[0,3,1,Version.Dev]:[0,3,1]
 ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", llversion,{Author:"小鼠同学"});
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
@@ -491,6 +491,11 @@ function playerEditTitle(player,title){
 					playerEditTitle(player,title);
 				});
 			}
+			else if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,data[0])]!=null){
+				player.sendModalForm("参数错误","标题已存在，请重新填写","继续","继续",(player,result)=>{
+					playerEditTitle(player,title);
+				});				
+			}
 			else{
 				let write=individualcontents.get("data");
 				write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].title=data[0];
@@ -521,7 +526,15 @@ function playereditanimation(player,title){
 				}
 			}
 			else if(id==1){//删除
-				playerDelAnimation(player,title);
+				if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents.length<=1){
+					player.sendModalForm("已经没有什么好删除的了","只剩下一个内容了，不能再删除了","继续","继续",()=>{
+						playereditanimation(player,title);
+					});
+				}
+				else{
+					playerDelAnimation(player,title);
+				}
+				
 				/*switch(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.type){
 					case "roll":playerDelAnimation(player,title);break;
 				}*/
@@ -735,7 +748,7 @@ function playerDelAnimation(player,title){
 			let write=individualcontents.get("data");
 			write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents.splice(id,1);
 			individualcontents.set("data",write);
-			playereditanimation(player,title);		
+			playereditanimation(player,title);
 		}
 		else{
 			playereditanimation(player,title);	
@@ -821,7 +834,7 @@ function newitem(player){
 	conf.get("templates").forEach((currentValue)=>{
 		expnewitem.push(currentValue.title);
 	})
-	let itemtoadd=["自定义内容（开发中）"];
+	let itemtoadd=["自定义内容"];
 	fm.setTitle("增加一个项目")
 	fm.setContent("选择一个预设来开始")
 	fm.addButton("自定义内容");
@@ -840,11 +853,17 @@ function newitem(player){
 	})
 	player.sendForm(fm,(player,id)=>{
 		if(id!=null){
-			let write=individualcontents.get("data");
-			let writecontents=conf.get("templates")[getIFromTemp(itemtoadd[id])];
-			write[getIFromPref(player.uuid)].contents.push(writecontents);
-			individualcontents.set("data",write);
-			//playersetnewitem(player);
+			if(id==0){
+				playerChooseNewItemAnimation(player);
+			}
+			else{
+				let write=individualcontents.get("data");
+				let writecontents=conf.get("templates")[getIFromTemp(itemtoadd[id])];
+				write[getIFromPref(player.uuid)].contents.push(writecontents);
+				individualcontents.set("data",write);
+				//playersetnewitem(player);				
+			}
+
 		}else{
 			playermanageitems(player);
 		}
@@ -880,6 +899,228 @@ function playerSetNewItem(player){
 		playercustomorder(player);
 	})	
 	
+}
+function playerChooseNewItemAnimation(player){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("选择一种动画");
+	fm.setContent(" ");
+	fm.addButton("轮播");
+	fm.addButton("滚动");
+	player.sendForm(fm,(player,id)=>{
+		switch(id){
+			case 0:playerCustomNewItem_alt(player);break;
+			case 1:playerCustomNewItem_roll(player);break;
+			case 2:break;
+			default:newitem(player);
+		}
+	})
+}
+function playerCustomNewItem_alt(player){
+	let i;
+	//individualcontents.get("data")[getIFromPref(player.uuid)].contents
+	let fm=mc.newCustomForm();
+	fm.setTitle("自定义这一项");
+	fm.addInput("标题","标题");
+	fm.addInput("停留时间","停留时间");
+	fm.addInput("内容","内容");
+	fm.addDropdown("默认颜色",colortext,15);
+	player.sendForm(fm,(player,data)=>{
+		if(data!=null){
+			let write=individualcontents.get("data");
+			let error=[false,false,false,false],errors=false;
+			let newLine={
+				title:"无标题",
+				type:"text",
+				display:true,
+				warp:false,
+				animation:{
+					type:"alt",
+					contents:[
+						{
+							time:1,
+							contents:"未指定",
+							color:"f"
+						}
+					]
+				}
+			};
+			if(data[0]!=""){
+				if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,data[0])]!=null){
+					error[0]="exist";
+				}
+				else{
+					newLine.title=data[0];
+				}
+			}
+			else{
+				error[0]="empty";
+			}
+
+			if(data[1]!=""){
+				if(!Number.isSafeInteger(Number(data[1]))){
+					error[1]="notsafe"
+				}
+				else{
+					newLine.animation.contents[0].time=Number(data[1]);
+				}
+				
+			}
+			if(data[2]==""){
+				error[2]=true;
+			}
+			else{
+				newLine.animation.contents[0].contents=data[2];
+			}
+			newLine.animation.contents[0].color=numtocolor(data[3]);
+			write[getIFromPref(player.uuid)].contents.push(newLine);
+			for(i=0;i<error.length-1;i++){
+				if(error[i]!=false){
+					let errortext="以下参数不正确\n";
+					if(error[0]=="empty"){
+						errortext=errortext+"标题不能为空\n";
+					}
+					else if(error[0]=="exist"){
+						errortext=errortext+"标题已存在\n"
+					}
+					if(error[1]=="empty"){
+						errortext=errortext+"停留时间不能为空\n";
+					}
+					else if(error[1]=="notsafe"){
+						errortext=errortext+"停留时间格式不正确\n";
+					}
+					if(error[2]){
+						errortext=errortext+"内容不能为空\n";
+					}
+					player.sendModalForm("参数错误",errortext,"继续","继续",(player,result)=>{
+						playerCustomNewItem_alt(player);
+					})
+					errors=true;
+					break;
+				}
+			}
+			if(!errors){
+				individualcontents.set("data",write);
+				playerChooseNewItemAnimation(player);
+			}
+			
+		}
+		else{
+			playerChooseNewItemAnimation(player);
+		}
+	})
+}
+function playerCustomNewItem_roll(player){
+	let i;
+	//individualcontents.get("data")[getIFromPref(player.uuid)].contents
+	let fm=mc.newCustomForm();
+	fm.setTitle("自定义这一项");
+	fm.addInput("标题","标题");
+	fm.addInput("长度限制","长度限制");
+	fm.addInput("内容","内容");
+	fm.addInput("停留时间","停留时间");
+	fm.addSwitch("摇摆",false)
+	player.sendForm(fm,(player,data)=>{
+		if(data!=null){
+			let write=individualcontents.get("data");
+			let error=[false,false,false,false,false],errors=false;
+			let newLine={
+				title:"无标题",
+				type:"text",
+				display:true,
+				warp:false,
+				animation:{
+					type:"roll",
+					contents:[
+						{
+							time:1,
+							contents:"未指定",
+							color:"f",
+							length: 1,
+							shake: true,
+							pause: 0
+						}
+					]
+				}
+			};
+			if(data[0]!=""){
+				if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,data[0])]!=null){
+					error[0]="exist";
+				}
+				else{
+					newLine.title=data[0];
+				}
+			}
+			else{
+				error[0]="empty";
+			}
+
+			if(data[1]!=""){
+				if(!Number.isSafeInteger(Number(data[1]))){
+					error[1]="notsafe"
+				}
+				else{
+					newLine.animation.contents[0].length=Number(data[1]);
+				}
+				
+			}
+			if(data[2]==""){
+				error[2]=true;
+			}
+			else{
+				newLine.animation.contents[0].contents=data[2];
+			}
+			if(data[3]!=""){
+				if(!Number.isSafeInteger(Number(data[3]))){
+					error[3]="notsafe"
+				}
+				else{
+					newLine.animation.contents[0].pause=Number(data[3]);
+				}
+				
+			}
+			newLine.animation.contents[0].shake=data[4];
+			write[getIFromPref(player.uuid)].contents.push(newLine);
+			for(i=0;i<error.length-1;i++){
+				if(error[i]!=false){
+					let errortext="以下参数不正确\n";
+					if(error[0]=="empty"){
+						errortext=errortext+"标题不能为空\n";
+					}
+					else if(error[0]=="exist"){
+						errortext=errortext+"标题已存在\n"
+					}
+					if(error[1]=="empty"){
+						errortext=errortext+"长度限制不能为空\n";
+					}
+					else if(error[1]=="notsafe"){
+						errortext=errortext+"长度限制格式不正确\n";
+					}
+					if(error[2]){
+						errortext=errortext+"内容不能为空\n";
+					}
+					if(error[3]=="empty"){
+						errortext=errortext+"停留时间不能为空\n";
+					}
+					else if(error[3]=="notsafe"){
+						errortext=errortext+"停留时间格式不正确\n";
+					}
+					player.sendModalForm("参数错误",errortext,"继续","继续",(player,result)=>{
+						playerCustomNewItem_roll(player);
+					})
+					errors=true;
+					break;
+				}
+			}
+			if(!errors){
+				individualcontents.set("data",write);
+				playerChooseNewItemAnimation(player);
+			}
+			
+		}
+		else{
+			playerChooseNewItemAnimation(player);
+		}
+	})
 }
 function getIFromPref(uuid){
 	let prefarr = individualcontents.get("data");
