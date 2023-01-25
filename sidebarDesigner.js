@@ -3,9 +3,11 @@
 //然后加入玩家自行编写侧边栏，ui设计颜色的部分只在这个功能禁用的时候启用
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
-ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", [0, 1, 0]);
+const llversion = ll.requireVersion(2,9,2)?[0,2,0,Version.Dev]:[0,2,0]
+ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", llversion,{Author:"小鼠同学"});
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
+let playerobjfortitle;
 let i=0,j=0,k=0;
 let colortext=["§0黑色","§1深蓝色","§2深绿色","§3湖蓝色","§4深红色","§5紫色","§6金色","§7灰色","§8深灰色","§9蓝色","§a绿色","§b天蓝色","§c红色","§d粉红色","§e黄色","§f白色","§g硬币金"];
 individualcontents.init("data",[]);
@@ -40,8 +42,11 @@ conf.init("title",{
 		contents:[
 			{
 				time:2,
-				contents:"欢迎您的加入",
-				color:"f"
+				contents:"§f欢迎您的加入",
+				color:"f",
+				length:3,
+				shake:true,
+				pause:3
 			}
 		]
 	}
@@ -147,8 +152,8 @@ conf.init("templates",[
 ])
 class tps{
 	constructor(){
-		const availabletpsplugins=["QueryTPS","BEPlaceholderAPI"];
-		let i;
+		let i = 0;
+		const availabletpsplugins=["QueryTPS","BEPlaceholderAPI","Cleaner"];
 		for(i=0;i<availabletpsplugins.length;i++){
 			if(ll.listPlugins().includes(availabletpsplugins[i])){
 				this.type=availabletpsplugins[i];
@@ -167,6 +172,10 @@ class tps{
 				tpsfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
 				return tpsfunc.getValue("server_tps");
 			}
+			case "Cleaner": {
+				tpsfunc=ll.import("Cleaner", "GetCurrentTPS");
+				return tpsfunc();
+			}
 			default:{
 				return null;
 			}
@@ -182,6 +191,10 @@ class tps{
 			case "BEPlaceholderAPI": {
 				tpsfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
 				return tpsfunc.getValue("server_tps");
+			}
+			case "Cleaner": {
+				tpsfunc=ll.import("Cleaner", "GetAverageTPS");
+				return tpsfunc();
 			}
 			default:{
 				return null;
@@ -200,6 +213,7 @@ maincmd.setCallback(function(cmd,origin,output,results){
 maincmd.setup();
 sendsidebar();
 mc.listen("onPreJoin",function(player){
+	playerobjfortitle=player;
 	individualcontents.reload()
 	if(getIFromPref(player.uuid)==null){
 		let write = individualcontents.get("data");
@@ -211,7 +225,6 @@ mc.listen("onPreJoin",function(player){
 		});
 		individualcontents.set("data",write);		
 	}
-
 })
 
 
@@ -219,6 +232,7 @@ function sendsidebar(){
 	let displaycontents = [];
 	let frameorder=0;
 	setInterval(()=>{
+		let i;
 		frameorder++;
 		mc.getOnlinePlayers().forEach((player)=>{
 			displaycontents = [];
@@ -234,15 +248,10 @@ function sendsidebar(){
 								displaycontents.push("§"+altcurrent.color+altcurrent.contents);	
 								break;
 							}
+							case "roll":{
+								displaycontents.push(rollAniFrame(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].animation.contents,frameorder,player));
+							}
 						}
-
-						/*let infocontents=individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].contents;
-						for(k=0;j<infocontents.length;j++){
-							infocontents[j]=replace(infocontents[j]);
-
-							infocontents[j]="§"+individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].color+infocontents[j];
-						}
-						displaycontents=displaycontents.concat(infocontents);*/
 					}
 				}
 				/*else if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].type=="money"){
@@ -263,6 +272,7 @@ function sendsidebar(){
 			}
 			//log(displaycontents);
 			//log(convertbar(displaycontents));
+			//标题动画
 			let sidebartitle="";
 			switch(conf.get("title").animation.type){
 				case "alt":{
@@ -270,7 +280,10 @@ function sendsidebar(){
 					sidebartitle="§"+altcurrent.color+altcurrent.contents;
 					break;
 				}
-				
+				case "roll":{
+					//log(rollAniFrame(conf.get("title").animation.contents,frameorder,playerobjfortitle));
+					sidebartitle=rollAniFrame(conf.get("title").animation.contents,frameorder,playerobjfortitle);
+				}
 			}
 			player.removeSidebar()
 			if(individualcontents.get("data")[getIFromPref(player.uuid)].display){
@@ -290,25 +303,73 @@ function mainform(player){
 	}else{
 		fm.addButton("打开侧边栏")
 	}
-	fm.addButton("排序");
-	fm.addButton("选择要显示的项目")
+	fm.addButton("管理项目");
 	//fm.addButton("更改项目的颜色")
 	player.sendForm(fm,(player,id)=>{
 		if(id!=null){
 			switch(id){
-				case 0:{
+				case 0:{//总开关
 					let write=individualcontents.get("data")
 					write[getIFromPref(player.uuid)].display = !write[getIFromPref(player.uuid)].display;
 					individualcontents.set("data",write);
 					break;
 				}
-				case 1:playercustomorder(player);break;
-				case 2:playercustomdisplay(player);break;
+				case 1:{
+					playermanageitems(player);
+					break;
+				}
 				//case 3:playercustomcolor(player);break;
 			}
 		}
 	})
 }
+function playermanageitems(player){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("管理项目");
+	fm.setContent(" ");
+	fm.addButton("增加一个项目");
+	fm.addButton("删除一个项目");
+	fm.addButton("管理已添加的项目");
+	player.sendForm(fm,(player,id)=>{
+		switch(id){
+			case 0:{
+				newitem(player);
+				break;
+			}
+			case 1:{
+				deleteitem(player);
+				break;
+			}
+			case 2:{
+				playercustomitems(player);
+				break;
+			}
+			default:{
+				mainform(player);
+			}
+		}
+	})
+}
+function playercustomitems(player){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("管理已添加的项目");
+	fm.setContent(" ");	
+	fm.addButton("排序");
+	fm.addButton("编辑指定的项目");
+	player.sendForm(fm,(player,id)=>{
+		switch(id){
+			case 0:{
+				playercustomorder(player);
+				break;
+			}
+			case 1:playeredititem(player);break;
+			default:{
+				playermanageitems(player);
+			}
+		}
+	})
+}
+
 function playercustomorder(player){
 	let fm=mc.newSimpleForm();
 	fm.setTitle("管理已添加的项目");
@@ -316,8 +377,6 @@ function playercustomorder(player){
 	individualcontents.get("data")[getIFromPref(player.uuid)].contents.forEach((currentValue,index)=>{
 		fm.addButton(individualcontents.get("data")[getIFromPref(player.uuid)].contents[index].title);
 	})
-	fm.addButton("增加一个项目")
-	fm.addButton("删除一个项目")
 	player.sendForm(fm,(player,id)=>{	
 		if(id!=null){
 			if(id<individualcontents.get("data")[getIFromPref(player.uuid)].contents.length-1){
@@ -327,58 +386,102 @@ function playercustomorder(player){
 				write[getIFromPref(player.uuid)].contents[id]=ex;
 				individualcontents.set("data",write);
 				playercustomorder(player);
-			}else if(id==individualcontents.get("data")[getIFromPref(player.uuid)].contents.length){
-				newitem(player);
-			}else if(id==individualcontents.get("data")[getIFromPref(player.uuid)].contents.length+1){
-				deleteitem(player);
-			}		
+			}	
 			else{
 				playercustomorder(player);
 			}
 		}
 		else{
-			mainform(player);
+			playercustomitems(player);
 		}
 	})
 }
-function playercustomdisplay(player){
-	let fm=mc.newCustomForm();
-	fm.setTitle("设置要显示的项目")
-	let cachedcontents={};
-	for(i=0;i<individualcontents.get("data")[getIFromPref(player.uuid)].contents.length;i++){
-		fm.addSwitch(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].title,individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].display)
-		/*for(j=0;j<individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].contents.length;j++){
-			fm.addSwitch(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].contents[j]);//for列出玩家的侧边栏
-		}*/
-	}
-	player.sendForm(fm,(player,data)=>{
-		if(data!=null){
-			let write=individualcontents.get("data")
-			data.forEach((currentValue,index)=>{
-				write[getIFromPref(player.uuid)].contents[index].display=currentValue;
-			})
-			individualcontents.set("data",write)	
+function playeredititem(player){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("编辑指定的项目");
+	fm.setContent("选择一个项目来个性化");
+	individualcontents.get("data")[getIFromPref(player.uuid)].contents.forEach((currentValue,index)=>{
+		fm.addButton(individualcontents.get("data")[getIFromPref(player.uuid)].contents[index].title);
+	})
+	player.sendForm(fm,(player,id)=>{
+		if(id!=null){
+			playercustomdisplay(player,individualcontents.get("data")[getIFromPref(player.uuid)].contents[id].title)
+		}
+		else{
+			playercustomitems(player);
+		}		
 			
+	})	
+}
+function playercustomdisplay(player,title){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("设置 "+title+" 的属性");
+	fm.setContent(" ");
+	fm.addButton("修改标题");
+	if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].display){
+		fm.addButton("关闭显示");
+	}
+	else{
+		fm.addButton("开启显示");
+	}
+	fm.addButton("编辑动画和内容");
+	player.sendForm(fm,(player,id)=>{
+		switch(id){
+			case 0:break;
+			case 1:{
+				let write=individualcontents.get("data");
+				write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].display=!write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].display;
+				individualcontents.set("data",write);
+				playercustomdisplay(player,title);
+				break;
+			}
+			case 2:{
+				playereditanimation(player,title);
+				break;
+			}
+			default:{
+				playeredititem(player);
+			}
 		}
-		mainform(player);
 	})
 }
-function playercustomcolor(player){
+function playereditanimation(player,title){
+	let fm=mc.newSimpleForm();
+	fm.setTitle("设置 "+title+" 的动画和内容");
+	fm.setContent("点击一个内容组元素来修改它的内容");
+	fm.addButton("新增一个内容组元素");
+	fm.addButton("移除一个内容组元素");
+	individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents.forEach((currentValue,index)=>{
+		fm.addButton(currentValue.contents);
+	})
+	player.sendForm(fm,(player,id)=>{
+		if(id!=null){
+			if(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.type=="alt"){
+				playereditanimation_alt(player,title,id-2);
+			}
+		}
+		else{
+			playercustomdisplay(player,title);
+		}
+	})
+}
+function playereditanimation_alt(player,title,id){
 	let fm=mc.newCustomForm();
-	fm.setTitle("选择每个项目的颜色")
-	for(i=0;i<individualcontents.get("data")[getIFromPref(player.uuid)].contents.length;i++){
-		fm.addDropdown(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].title,colortext,colortonum(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].color))
-		//fm.addSwitch(individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].title,individualcontents.get("data")[getIFromPref(player.uuid)].contents[i].display)
-	}
+	fm.setTitle("设置 "+title+" 的动画和内容");
+	fm.addInput("停留时间"," ",individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].time.toString());
+	fm.addInput("内容"," ",individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].contents);
+	fm.addDropdown("默认颜色",colortext,colortonum(individualcontents.get("data")[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].color));
 	player.sendForm(fm,(player,data)=>{
 		if(data!=null){
-			let write=individualcontents.get("data")[getIFromPref(player.uuid)]
-			data.forEach((currentValue,index)=>{
-				write.contents[index].color=numtocolor(currentValue);
-			})
-			individualcontents.set(player.uuid,write);
-		}else{
-			mainform(player);
+			let write=individualcontents.get("data");
+			write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].time=Number(data[0]);
+			write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].contents=data[1];
+			write[getIFromPref(player.uuid)].contents[getIFromContents(player,title)].animation.contents[id].color=numtocolor(data[2]);
+			individualcontents.set("data",write);
+			playereditanimation(player,title);
+		}
+		else{
+			playereditanimation(player,title);
 		}
 	})
 }
@@ -426,7 +529,7 @@ function newitem(player){
 			individualcontents.set("data",write);
 			//playersetnewitem(player);
 		}else{
-			playercustomorder(player);
+			playermanageitems(player);
 		}
 	})
 }
@@ -445,7 +548,7 @@ function deleteitem(player){
 			playercustomorder(player);
 		}
 		else{
-			playercustomorder(player);
+			playermanageitems(player);
 		}
 	})
 }
@@ -481,14 +584,24 @@ function getIFromTemp(title){
 	}
 	return null;
 }
+function getIFromContents(player,title){
+	let contentsarr = individualcontents.get("data")[getIFromPref(player.uuid)].contents;
+	let i=0;
+	for(i=0;i<contentsarr.length;i++){
+		if(contentsarr[i].title==title){
+			return i;
+		}
+	}
+	return null;
+}
 function replace(str,player){
 	let replaced="";
 	replaced=str.replace(/\$time/,`${(system.getTimeObj().h-system.getTimeObj().h%10)/10}${system.getTimeObj().h%10}:${(system.getTimeObj().m-system.getTimeObj().m%10)/10}${system.getTimeObj().m%10}`)
 	.replace(/\$ping/,`${player.getDevice().lastPing}`)
 	.replace(/\$name/g,player.name)
-	.replace(/\$facing/g,directionstr(player)+"§r")
-	.replace(/\$gametime/g,gametimestr()+"§r")
-	.replace(/\$weather/g,weatherstr()+"§r");
+	.replace(/\$facing/g,directionstr(player))
+	.replace(/\$gametime/g,gametimestr())
+	.replace(/\$weather/g,weatherstr());
 	if(new tps().type!=null){//类迁移过来的时候，记得把i声明成局部变量
 		replaced=replaced.replace(/\$currenttps/g,new tps().currentTps());
 	}
@@ -506,12 +619,94 @@ function replace(str,player){
 function animate(){
 
 }
-function colorrollslice(currentValue,order){
+function rollAniFrame(contents,order,player){//只是决定了在哪切
+	//同时需要迁移的函数：collorrollslice，cleanstr，removeColorCode，joinconnect
+	let framecounts=[];
+	let framecount=0,line;
+	let totalframes=0;
+	let i;
+	let movingframes;
+	let cut=0;
+	let currentFrameOnLine;
+	for(i=0;i<contents.length;i++){
+		framecount=0;
+		movingframes=removeColorCode(replace(contents[i].contents,player)).length-contents[i].length+1;
+		//log(contents)
+		//log(movingframes);
+		if(contents[i].pause>1){
+			framecount+=(contents[i].pause-1)*2;
+		}
+		if(contents[i].shake){
+			framecount+=movingframes-1+contents[i].pause-1;
+			//log("shake-framecount:",framecount,"movingframes:",movingframes)
+		}
+		//log(framecount);
+		framecount=framecount+movingframes;
+		//log(movingframes);
+		//log("framecount:",framecount);
+		//log(framecount);
+		framecounts.push(framecount);
+		
+	}
+	framecounts.forEach((currentValue)=>{
+		totalframes+=currentValue;
+	})
+	//log("totalframes:",totalframes);
+	let forlength=0;
+	//log(framecounts.length);
+	//log(contents.length);
+	for(i=0;i<framecounts.length;i++){
+		forlength+=framecounts[i];
+		//log("framecounts:",framecounts);
+		//log("forlength:",forlength);
+		//log("当前帧:",order%totalframes)
+		if(forlength-1>=order%totalframes){
+			line=i;
+			break;
+		}
+	}
+	//当前帧在这一行上是第几帧
+	//framecounts[line]是这一行上一共有几帧
+	//log("line:",line)
+	currentFrameOnLine=framecounts[line]-(forlength-order%totalframes);
+	//log("currentFrameOnLine:",currentFrameOnLine);
+	if(currentFrameOnLine>=0&&currentFrameOnLine<=contents[line].pause-2){
+		cut=0;
+		//log("位置前面的pause")
+	}
+	else if(currentFrameOnLine>=contents[line].pause-1&&currentFrameOnLine<=contents[line].pause-1+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length){
+		cut=currentFrameOnLine-(contents[line].pause-1);
+		//log("位置中间部分")
+	}
+	//后面的pause
+	else if(currentFrameOnLine>=contents[line].pause+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length && currentFrameOnLine<=(contents[line].pause-1)*2+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length){
+		cut=removeColorCode(replace(contents[line].contents,player)).length-contents[line].length;
+		//log("位置pause后面的");
+	}
+	else if(contents[line].shake  &&  currentFrameOnLine>(contents[line].pause-1)*2+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length  &&  currentFrameOnLine<=(contents[line].pause-1)*2+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length){
+		cut=(removeColorCode(replace(contents[line].contents,player)).length-contents[line].length+1)-(currentFrameOnLine-((contents[line].pause-1)*2+removeColorCode(replace(contents[line].contents,player)).length-contents[line].length))-1//-(contents[line].pause-1) //
+		//log((contents[line].pause-1)*2+removeColorCode(contents[i].contents).length-contents[i].length+removeColorCode(contents[i].contents).length-contents[i].length-1)-(currentFrameOnLine-((contents[line].pause-1)*2+removeColorCode(contents[i].contents).length-contents[i].length))
+		//log((contents[line].pause-1)*2+removeColorCode(contents[i].contents).length-contents[i].length+removeColorCode(contents[i].contents).length-contents[i].length-1);
+		//log(currentFrameOnLine-((contents[line].pause-1)*2+removeColorCode(contents[i].contents).length-contents[i].length));
+		//log("位置shake");//
+		//log("cut:",cut);
+	}
+	else if(currentFrameOnLine>(contents[line].pause-1)*2+removeColorCode(replace(contents[line].contents,player)).length-contents[i].length+removeColorCode(replace(contents[line].contents,player)).length-contents[i].length-1){
+		cut=0;
+		//log("位置shake-pause")//少一个
+	}
+	//log(contents[line].contents);
+	//log(colorrollslice({contents:contents[line].contents,length:contents[i].length},cut,player));/
+	//log("--------------------------------")
+	return colorrollslice({contents:contents[line].contents,length:contents[i].length},cut,player);
+}
+function colorrollslice(currentValue,order,player){
+	//log(currentValue);
 	let i;
 	let motd = "";
 	let rollarr=[],color=[""];
 	let fcut=0,fcutarr=0,fcutonstr=0,bcut=0,bcutarr=0,bcutonstr=0,forlength=0;
-	connect = "§r"+replace(currentValue.contents);
+	connect = "§r"+replace(currentValue.contents,player);//算法决定了这里必须加颜色代码
 	//log(connect);
 	rollarr = cleanstr(connect.split(/§./g));
 	//log(rollarr);
@@ -537,7 +732,7 @@ function colorrollslice(currentValue,order){
 		}						
 	}
 	for(i=0;i<=connect.length-2;i++){
-		if(connect.slice(i,i+2).match(/§./)!=null){
+		if(connect.slice(i,i+2).match(/§./)!=null){//这里的2是因为颜色代码的长度是2
 			color[color.length-1]=color[color.length-1]+connect.slice(i,i+2).match(/§./)[0];
 			i++;
 		}
@@ -566,8 +761,27 @@ function colorrollslice(currentValue,order){
 	/*else{//这个就是前后切点位于同一字符串的情况，所以直接对motd字符串本身处理，而尽量不再去读取之前的变量
 		motd = motd.slice(0,bcutonstr);
 	}*/
-	motd=motd+"§r";
+	//log("colorrollslice:",motd);
 	return motd;
+}
+function removeColorCode(str){
+	return joinconnect(cleanstr(str.split(/§./g)));
+}
+function cleanstr(arr){
+	let arr1 = [];
+	arr.forEach((currentValue)=>{
+		if(currentValue!=""&&currentValue!=null){
+			arr1.push(currentValue);
+		}
+	})
+	return arr1;
+}
+function joinconnect(arr){
+	let str = "";
+	arr.forEach((currentValue)=>{
+		str=str+currentValue;
+	});
+	return str;
 }
 function directionstr(player){
 	let str="";
