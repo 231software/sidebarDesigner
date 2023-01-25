@@ -3,7 +3,7 @@
 //然后加入玩家自行编写侧边栏，ui设计颜色的部分只在这个功能禁用的时候启用
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
-const llversion = ll.requireVersion(2,9,2)?[0,3,2,Version.Dev]:[0,3,2]
+const llversion = ll.requireVersion(2,9,2)?[0,4,0,Version.Beta]:[0,4,0]
 ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", llversion,{Author:"小鼠同学"});
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
@@ -241,6 +241,7 @@ class tps{
 }
 class mspt{
 	constructor(){
+		let i;
 		const availableplugins=["BEPlaceholderAPI"];
 		for(i=0;i<availableplugins.length;i++){
 			if(ll.listPlugins().includes(availableplugins[i])){
@@ -255,6 +256,114 @@ class mspt{
 			case "BEPlaceholderAPI": {
 				msptfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
 				return msptfunc.getValue("server_mspt");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class version{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_version");
+			}
+			default:{
+				return mc.BDSVersion();
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class protocol{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_protocol_version");
+			}
+			default:{
+				return mc.getServerProtocolVersion();
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class entities{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_total_entities");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class uptime{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_uptime");
 			}
 			default:{
 				return null;
@@ -1236,12 +1345,28 @@ function replace(str,player){
 	let replaced="";
 	replaced=str.replace(/\$time/,`${(system.getTimeObj().h-system.getTimeObj().h%10)/10}${system.getTimeObj().h%10}:${(system.getTimeObj().m-system.getTimeObj().m%10)/10}${system.getTimeObj().m%10}`)
 	.replace(/\$ping/,`${player.getDevice().lastPing}`)
+	.replace(/\$avgping/,`${player.getDevice().avgPing}`).replace(/\$averageping/,`${player.getDevice().avgPing}`)
+	.replace(/\$pkls/,`${player.getDevice().lastPacketLoss}`).replace(/\$packetloss/,`${player.getDevice().lastPacketLoss}`)
+	.replace(/\$avgpkls/,`${player.getDevice().avgPacketLoss}`).replace(/\$averagepacketloss/,`${player.getDevice().avgPacketLoss}`)
+	.replace(/\$cos/,`${player.getDevice().os}`).replace(/\$cos/,`${player.getDevice().cliensos}`)
+	.replace(/\$cid/,`${player.getDevice().clientId}`).replace(/\$clientid/,`${player.getDevice().clientId}`)
 	.replace(/\$name/g,player.name)
 	.replace(/\$facing/g,directionstr(player))
 	.replace(/\$gametime/g,gametimestr())
 	.replace(/\$weather/g,weatherstr())
+	.replace(/\$cip/g,player.ip).replace(/\$clientip/g,player.ip)
+	.replace(/\$biome/g,player.getBiomeName())
+	.replace(/\$uuid/g,player.uuid)
+	.replace(/\$xuid/g,player.xuid)
+	.replace(/\$realname/g,player.realName)
+	.replace(/\$fpx/g,player.pos.x).replace(/\$fpy/g,player.pos.y).replace(/\$fpz/g,player.pos.z)
 	.replace(/\$money/g,new gmoney("llmoney","").get(player));
-
+	if(new mspt().type!=null){
+		replaced=replaced.replace(/\$mspt/g,new mspt().get());
+	}
+	else{
+		replaced=replaced.replace(/\$mspt/g,"");
+	}
 	if(new tps().type!=null){//类迁移过来的时候，记得把i声明成局部变量
 		replaced=replaced.replace(/\$currenttps/g,new tps().currentTps()).replace(/\$tps/g,new tps().currentTps());
 	}
@@ -1253,6 +1378,30 @@ function replace(str,player){
 	}
 	else{
 		replaced=replaced.replace(/\$averagetps/g,"");
+	}
+	if(new version().type!=null){
+		replaced=replaced.replace(/\$version/g,new version().get());
+	}
+	else{
+		replaced=replaced.replace(/\$version/g,"");
+	}
+	if(new protocol().type!=null){
+		replaced=replaced.replace(/\$protocol/g,new protocol().get());
+	}
+	else{
+		replaced=replaced.replace(/\$protocol/g,"");
+	}
+	if(new entities().type!=null){
+		replaced=replaced.replace(/\$entities/g,new entities().get());
+	}
+	else{
+		replaced=replaced.replace(/\$entities/g,"");
+	}
+	if(new uptime().type!=null){
+		replaced=replaced.replace(/\$uptime/g,new uptime().get());
+	}
+	else{
+		replaced=replaced.replace(/\$uptime/g,"");
 	}
 	return replaced;
 }
@@ -1529,5 +1678,28 @@ function numtocolor(num){
 	}
 }
 //群系名称
-//天气
 //不显示标题
+/*
+server_online	服务器在线人数
+server_max_players	服务器最大在线数
+server_world_name	世界名称
+server_seed	世界种子
+server_on_allowlist	服务器是否开启白名单
+server_difficulty	世界难度
+server_port	服务器端口
+server_port_v6	服务器ipv6端口
+server_start_time_<format>	服务器启动时间
+server_name	服务器名
+server_has_whitelist	服务器有无白名单
+server_ram_bds_used	BDS核心使用内存
+server_ram_free	服务器空闲内存
+server_ram_used	服务器使用总内存
+server_ram_max	服务器最大内存
+*/
+/*
+player_speed	玩家速度
+player_language	玩家语言
+player_bed_x	玩家床的X坐标
+player_bed_y	玩家床的Y坐标
+player_bed_z	玩家床的Z坐标
+*/
