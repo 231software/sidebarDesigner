@@ -3,7 +3,7 @@
 //然后加入玩家自行编写侧边栏，ui设计颜色的部分只在这个功能禁用的时候启用
 //ui设计颜色的部分分成几个部分，玩家
 //显示玩家内容的部分要跟进修改
-const llversion = ll.requireVersion(2,9,2)?[0,4,0,Version.Beta]:[0,4,0]
+const llversion = ll.requireVersion(2,9,2)?[0,4,1,Version.Beta]:[0,4,1]
 ll.registerPlugin("sidebarDesigner", "让玩家自行设计motd", llversion,{Author:"小鼠同学"});
 const individualcontents=new JsonConfigFile("plugins\\sidebarDesigner\\playerContents.json");
 const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
@@ -364,6 +364,118 @@ class uptime{
 			case "BEPlaceholderAPI": {
 				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
 				return getfunc.getValue("server_uptime");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class online{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_online");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class max_players{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValue("server_max_players");
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class speed{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(player){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return getfunc.getValueByPlayer("player_name",player);
+			}
+			default:{
+				return null;
+			}
+		}
+	}
+	plugin(){
+		return this.type;
+	}
+}
+class playerBedPos{
+	constructor(){
+		let i;
+		const availableplugins=["BEPlaceholderAPI"];
+		for(i=0;i<availableplugins.length;i++){
+			if(ll.listPlugins().includes(availableplugins[i])){
+				this.type=availableplugins[i];
+				break;
+			}
+		}
+	}
+	get(player){
+		let getfunc;
+		switch(this.type){
+			case "BEPlaceholderAPI": {
+				getfunc=require('./lib/BEPlaceholderAPI-JS').PAPI;
+				return {
+					x:getfunc.getValueByPlayer("player_bed_x",player),
+					y:getfunc.getValueByPlayer("player_bed_y",player),
+					y:getfunc.getValueByPlayer("player_bed_z",player)
+				}
 			}
 			default:{
 				return null;
@@ -1348,7 +1460,7 @@ function replace(str,player){
 	.replace(/\$avgping/,`${player.getDevice().avgPing}`).replace(/\$averageping/,`${player.getDevice().avgPing}`)
 	.replace(/\$pkls/,`${player.getDevice().lastPacketLoss}`).replace(/\$packetloss/,`${player.getDevice().lastPacketLoss}`)
 	.replace(/\$avgpkls/,`${player.getDevice().avgPacketLoss}`).replace(/\$averagepacketloss/,`${player.getDevice().avgPacketLoss}`)
-	.replace(/\$cos/,`${player.getDevice().os}`).replace(/\$cos/,`${player.getDevice().cliensos}`)
+	.replace(/\$cos/,`${player.getDevice().os}`).replace(/\$clientos/,`${player.getDevice().cliensos}`)
 	.replace(/\$cid/,`${player.getDevice().clientId}`).replace(/\$clientid/,`${player.getDevice().clientId}`)
 	.replace(/\$name/g,player.name)
 	.replace(/\$facing/g,directionstr(player))
@@ -1403,6 +1515,42 @@ function replace(str,player){
 	else{
 		replaced=replaced.replace(/\$uptime/g,"");
 	}
+	if(new online().type!=null){
+		replaced=replaced.replace(/\$online/g,new online().get());
+	}
+	else{
+		replaced=replaced.replace(/\$online/g,"");
+	}
+	if(new max_players().type!=null){
+		replaced=replaced.replace(/\$onlinemax/g,new max_players().get());
+	}
+	else{
+		replaced=replaced.replace(/\$onlinemax/g,"");
+	}
+	/*if(new speed().type!=null){
+		replaced=replaced.replace(/\$speed/g,new speed().get(player));
+	}
+	else{
+		replaced=replaced.replace(/\$speed/g,"");
+	}*/
+	/*if(new playerBedPos().type!=null){
+		replaced=replaced.replace(/\$bedx/g,new playerBedPos().get(player).x);
+	}
+	else{
+		replaced=replaced.replace(/\$bedx/g,"");
+	}
+	if(new playerBedPos().type!=null){
+		replaced=replaced.replace(/\$bedy/g,new playerBedPos().get(player).y);
+	}
+	else{
+		replaced=replaced.replace(/\$bedy/g,"");
+	}
+	if(new playerBedPos().type!=null){
+		replaced=replaced.replace(/\$bedz/g,new playerBedPos().get(player).z);
+	}
+	else{
+		replaced=replaced.replace(/\$bedz/g,"");
+	}*/
 	return replaced;
 }
 function animate(){
@@ -1677,29 +1825,4 @@ function numtocolor(num){
 		case 16:return "g";break;
 	}
 }
-//群系名称
 //不显示标题
-/*
-server_online	服务器在线人数
-server_max_players	服务器最大在线数
-server_world_name	世界名称
-server_seed	世界种子
-server_on_allowlist	服务器是否开启白名单
-server_difficulty	世界难度
-server_port	服务器端口
-server_port_v6	服务器ipv6端口
-server_start_time_<format>	服务器启动时间
-server_name	服务器名
-server_has_whitelist	服务器有无白名单
-server_ram_bds_used	BDS核心使用内存
-server_ram_free	服务器空闲内存
-server_ram_used	服务器使用总内存
-server_ram_max	服务器最大内存
-*/
-/*
-player_speed	玩家速度
-player_language	玩家语言
-player_bed_x	玩家床的X坐标
-player_bed_y	玩家床的Y坐标
-player_bed_z	玩家床的Z坐标
-*/
