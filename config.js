@@ -1,0 +1,157 @@
+const conf=new JsonConfigFile("plugins\\sidebarDesigner\\config.json");
+conf.init("fps",5);
+conf.init("default",[
+	{
+		title:"欢迎语",
+		type:"text",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:1,
+					contents:"输入/sidebar自定义此侧边栏",
+					color:"g"
+				},
+				{
+					time:4,
+					contents:"输入/sidebar自定义此侧边栏",
+					color:"f"
+				}
+			]
+		}
+	}
+]);
+conf.init("title",{
+	type:"text",
+	animation:{
+		type:"roll",
+		contents:[
+			{
+				time:2,
+				contents:"§f欢迎您的加入",
+				color:"f",
+				length:3,
+				shake:true,
+				pause:3
+			}
+		]
+	}
+})
+conf.init("templates",[
+	{
+		type:"text",
+		title:"欢迎语",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"输入/sidebar自定义此侧边栏",
+					color:"f"
+				}
+			]
+		}
+	},
+	{
+		type:"text",
+		title:"tps",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"tps:$currenttps",
+					color:"f"
+				}
+			]
+		}
+	},
+	{
+		type:"text",
+		title:"世界时间",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"世界时间:$gametime",
+					color:"f"
+				}
+			]
+		}
+	},
+	{
+		type:"text",
+		title:"时间",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"时间:$time",
+					color:"f"
+				}
+			]
+		}
+	},
+	{
+		type:"text",
+		title:"天气",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"天气$weather",
+					color:"f"
+				}
+			]
+		}
+	},
+	{
+		type:"text",
+		title:"朝向",
+		display:true,
+		warp:true,
+		animation:{
+			type:"alt",
+			contents:[
+				{
+					time:2,
+					contents:"朝向:$facing",
+					color:"f"
+				}
+			]
+		}
+	}
+
+])
+conf.init("economy_type","llmoney")
+conf.init("custom_placeholders",[]);
+conf.init("force_title_display",false);
+function getIFromTemp(title){
+	let temparr = conf.get("templates");
+	let i=0;
+	for(i=0;i<temparr.length;i++){
+		if(temparr[i].title==title){
+			return i;
+		}
+	}
+	return null;
+}
+module.exports={
+	conf,
+	getIFromTemp
+}
