@@ -170,5 +170,5 @@ function convertbar(contents){//没有模块化的意义
 	return str;
 }
 
-const llversion = ll.requireVersion(2,9,2)?[0,8,1,Version.Beta]:[0,8,1]
-ll.registerPlugin("sidebarDesigner", "让玩家自行设计侧边栏", llversion,{Author:"小鼠同学"});
+const llversion = ll.requireVersion(2,9,2)?[1,0,0,Version.Beta]:[1,0,0]
+ll.registerPlugin("sidebarDesigner", "让玩家自行设计侧边栏", llversion,{Author:"Minimouse48"});

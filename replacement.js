@@ -197,7 +197,9 @@ function replace(str,player){//函数拿走的时候带上前面所有的import
 			})			
 		}
 	}
+	//自定义占位符
 	conf.get("custom_placeholders").forEach((currentValue)=>{
+		if(currentValue.enabled==false)return;
 		switch(currentValue.type){
 			case "scoreboard":{
 				if(!(!player.isOP()&&currentValue.perm)){
